@@ -19,7 +19,7 @@ VERSION = "2.0"
 MONEDA_SIMBOLO = "S/"
 MAX_HISTORIAL = 50
 ARCHIVO_HISTORIAL = Path("historial_tip_calculator.json")
-SEPARADOR = "─" * 42
+SEPARADOR = "█" * 42
 
 PROPINAS_RAPIDAS = [10, 15, 18, 20, 25]
 
@@ -78,7 +78,7 @@ def calcular_propina(monto: float, propina_pct: float, personas: int) -> Calculo
     if not (0 <= propina_pct <= 100):
         raise ValueError("La propina debe estar entre 0% y 100%.")
     if personas < 1:
-        raise ValueError("Debe haber al menos 1 persona.")
+        raise ValueError("Error: personas debe ser >= 1.")
 
     total_con_propina = monto * (1 + propina_pct / 100)
     total_por_persona = total_con_propina / personas
