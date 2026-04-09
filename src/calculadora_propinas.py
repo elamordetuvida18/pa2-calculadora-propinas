@@ -13,15 +13,35 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import cm
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+
 # ─── Configuración ────────────────────────────────────────────────────────────
 
 VERSION = "2.0"
 MONEDA_SIMBOLO = "S/"
 MAX_HISTORIAL = 50
 ARCHIVO_HISTORIAL = Path("historial_tip_calculator.json")
-SEPARADOR = "─" * 42
+SEPARADOR = "═" * 42
 
 PROPINAS_RAPIDAS = [10, 15, 18, 20, 25]
+EQUIPO = ["Integrante 1", "Integrante 2", "Integrante 3"]  # ← cambia los nombres aquí
+
+
+# ─── Estilos de consola (ANSI) ────────────────────────────────────────────────
+
+class Estilo:
+    RESET    = "\033[0m"
+    NEGRITA  = "\033[1m"
+    AZUL     = "\033[94m"
+    VERDE    = "\033[92m"
+    AMARILLO = "\033[93m"
+    ROJO     = "\033[91m"
+    GRIS     = "\033[90m"
 
 
 # ─── Modelo de datos ──────────────────────────────────────────────────────────
@@ -190,8 +210,9 @@ class CalculadoraPropinas:
         print("  [2] 📋 Ver historial")
         print("  [3] 🗑️  Limpiar historial")
         print("  [4] 📤 Exportar CSV")
-        print("  [5] 📊 Estadísticas")
-        print("  [6] ❌ Salir")
+        print("  [5] 📄 Exportar PDF")
+        print("  [6] 📊 Estadísticas")
+        print("  [7] ❌ Salir")
         print(SEPARADOR)
 
     # ── Nuevo cálculo ─────────────────────────────────────────────────────────
@@ -249,7 +270,6 @@ class CalculadoraPropinas:
         print(f"  HISTORIAL ({len(self.historial)} registros)")
         print(SEPARADOR)
 
-        # Encabezado
         print(f"  {'Fecha':<17} {'Total':>10} {'Prop':>6} {'Pers':>5} {'Por persona':>12}")
         print(f"  {'─'*17} {'─'*10} {'─'*6} {'─'*5} {'─'*12}")
 
@@ -309,6 +329,125 @@ class CalculadoraPropinas:
         except OSError as e:
             print(f"  ✖  Error exportando CSV: {e}")
 
+    # ── Exportar PDF ──────────────────────────────────────────────────────────
+
+    def exportar_pdf(self) -> None:
+        """Genera un reporte PDF con historial y estadísticas."""
+        if not self.historial:
+            print("  ⚠  No hay datos para exportar.")
+            return
+
+        archivo_pdf = Path("historial_tip_calculator.pdf")
+
+        try:
+            doc = SimpleDocTemplate(
+                str(archivo_pdf),
+                pagesize=A4,
+                leftMargin=2*cm, rightMargin=2*cm,
+                topMargin=2*cm, bottomMargin=2*cm,
+            )
+
+            styles = getSampleStyleSheet()
+            titulo_style = ParagraphStyle(
+                "titulo", parent=styles["Title"],
+                fontSize=18, spaceAfter=4, textColor=colors.HexColor("#1a1a1a"),
+            )
+            subtitulo_style = ParagraphStyle(
+                "subtitulo", parent=styles["Normal"],
+                fontSize=10, textColor=colors.HexColor("#666666"),
+                spaceAfter=16, alignment=TA_CENTER,
+            )
+            seccion_style = ParagraphStyle(
+                "seccion", parent=styles["Heading2"],
+                fontSize=12, textColor=colors.HexColor("#1a1a1a"),
+                spaceBefore=16, spaceAfter=8,
+            )
+
+            story = []
+
+            story.append(Paragraph(f"Calculadora de Propinas v{VERSION}", titulo_style))
+            story.append(Paragraph(
+                f"Reporte generado el {datetime.now().strftime('%d/%m/%Y %H:%M')} "
+                f"| {len(self.historial)} registro(s)",
+                subtitulo_style,
+            ))
+            story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#dddddd")))
+
+            story.append(Paragraph("Resumen", seccion_style))
+
+            total_gastado = sum(c.total_con_propina for c in self.historial)
+            propina_prom  = sum(c.propina_pct for c in self.historial) / len(self.historial)
+            gasto_prom    = total_gastado / len(self.historial)
+            gasto_max     = max(self.historial, key=lambda c: c.total_con_propina)
+
+            stats_data = [
+                ["Métrica", "Valor"],
+                ["Total gastado",              fmt_moneda(total_gastado)],
+                ["Gasto promedio por cálculo", fmt_moneda(gasto_prom)],
+                ["Mayor gasto registrado",     fmt_moneda(gasto_max.total_con_propina)],
+                ["Propina promedio",           f"{propina_prom:.1f}%"],
+                ["Número de cálculos",         str(len(self.historial))],
+            ]
+
+            stats_table = Table(stats_data, colWidths=[10*cm, 6*cm])
+            stats_table.setStyle(TableStyle([
+                ("BACKGROUND",     (0, 0), (-1, 0),  colors.HexColor("#1a1a1a")),
+                ("TEXTCOLOR",      (0, 0), (-1, 0),  colors.white),
+                ("FONTNAME",       (0, 0), (-1, 0),  "Helvetica-Bold"),
+                ("FONTSIZE",       (0, 0), (-1, 0),  10),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#f9f9f9"), colors.white]),
+                ("FONTSIZE",       (0, 1), (-1, -1),  9),
+                ("ALIGN",          (1, 0), (1, -1),  "RIGHT"),
+                ("TOPPADDING",     (0, 0), (-1, -1),  6),
+                ("BOTTOMPADDING",  (0, 0), (-1, -1),  6),
+                ("LEFTPADDING",    (0, 0), (-1, -1),  10),
+                ("RIGHTPADDING",   (0, 0), (-1, -1),  10),
+                ("GRID",           (0, 0), (-1, -1),  0.4, colors.HexColor("#e0e0e0")),
+            ]))
+            story.append(stats_table)
+
+            story.append(Paragraph("Historial completo", seccion_style))
+
+            historial_ordenado = sorted(self.historial, key=lambda c: c.fecha, reverse=True)
+            encabezado = ["Fecha", "Total original", "Propina", "Personas", "Total", "Por persona"]
+            filas = [encabezado] + [
+                [
+                    c.fecha,
+                    fmt_moneda(c.total_original),
+                    f"{c.propina_pct:.0f}%",
+                    str(c.personas),
+                    fmt_moneda(c.total_con_propina),
+                    fmt_moneda(c.total_por_persona),
+                ]
+                for c in historial_ordenado
+            ]
+
+            col_widths = [3.8*cm, 3*cm, 1.8*cm, 2*cm, 3*cm, 3*cm]
+            hist_table = Table(filas, colWidths=col_widths, repeatRows=1)
+            hist_table.setStyle(TableStyle([
+                ("BACKGROUND",     (0, 0), (-1, 0),  colors.HexColor("#1a1a1a")),
+                ("TEXTCOLOR",      (0, 0), (-1, 0),  colors.white),
+                ("FONTNAME",       (0, 0), (-1, 0),  "Helvetica-Bold"),
+                ("FONTSIZE",       (0, 0), (-1, 0),  8),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#f9f9f9"), colors.white]),
+                ("FONTSIZE",       (0, 1), (-1, -1),  8),
+                ("ALIGN",          (1, 0), (-1, -1),  "RIGHT"),
+                ("ALIGN",          (0, 0), (0, -1),   "LEFT"),
+                ("TOPPADDING",     (0, 0), (-1, -1),  5),
+                ("BOTTOMPADDING",  (0, 0), (-1, -1),  5),
+                ("LEFTPADDING",    (0, 0), (-1, -1),  8),
+                ("RIGHTPADDING",   (0, 0), (-1, -1),  8),
+                ("GRID",           (0, 0), (-1, -1),  0.4, colors.HexColor("#e0e0e0")),
+            ]))
+            story.append(hist_table)
+
+            doc.build(story)
+            print(f"  ✅ PDF exportado: {archivo_pdf.resolve()}")
+            print(f"  📄 {len(historial_ordenado)} registros | A4 | UTF-8")
+
+        except Exception as e:
+            print(f"  ✖  Error exportando PDF: {e}")
+
     # ── Estadísticas ──────────────────────────────────────────────────────────
 
     def mostrar_estadisticas(self) -> None:
@@ -339,14 +478,16 @@ class CalculadoraPropinas:
 
     def ejecutar(self) -> None:
         """Bucle principal de la aplicación con manejo de Ctrl+C."""
-        print(f"\n  💰 Bienvenido a la Calculadora de Propinas v{VERSION}")
-        print(f"  💱 Moneda: {MONEDA_SIMBOLO} | Historial máx: {MAX_HISTORIAL}")
-        print(f"  💾 {len(self.historial)} registro(s) cargado(s) desde disco.")
+        equipo_str = " | ".join(EQUIPO)
+        print(f"\n  {Estilo.AZUL}{Estilo.NEGRITA}💰 BIENVENIDO A CALCULADORA DE PROPINAS v{VERSION}{Estilo.RESET}")
+        print(f"  💱 Moneda: {MONEDA_SIMBOLO} | Límite: {MAX_HISTORIAL} registros")
+        print(f"  {Estilo.GRIS}👥 Equipo: {equipo_str}{Estilo.RESET}")
+        print(f"  {Estilo.GRIS}💾 {len(self.historial)} registro(s) cargado(s) desde disco.{Estilo.RESET}")
 
         try:
             while True:
                 self.mostrar_menu()
-                opcion = input("  ➤ Elige una opción [1-6]: ").strip()
+                opcion = input("  ➤ Elige una opción [1-7]: ").strip()
 
                 if opcion == "1":
                     self._procesar_nuevo_calculo()
@@ -358,21 +499,24 @@ class CalculadoraPropinas:
                     self.exportar_csv()
                     input("\n  ⏎ Presiona Enter para continuar...")
                 elif opcion == "5":
-                    self.mostrar_estadisticas()
+                    self.exportar_pdf()
+                    input("\n  ⏎ Presiona Enter para continuar...")
                 elif opcion == "6":
+                    self.mostrar_estadisticas()
+                elif opcion == "7":
                     print(f"\n{SEPARADOR}")
                     print("  ¡Hasta luego! 👋")
                     print(SEPARADOR)
                     break
                 else:
-                    print("  ⚠  Opción inválida. Usa 1–6.")
+                    print("  ⚠  Opción inválida. Usa 1–7.")
         except KeyboardInterrupt:
             print(f"\n\n{SEPARADOR}")
             print("  Salida forzada. ¡Hasta luego! 👋")
             print(SEPARADOR)
 
 
-# ─── Tests unitarios (pytest) ─────────────────────────────────────────────────
+# ─── Tests unitarios ──────────────────────────────────────────────────────────
 
 def _tests() -> None:
     """Suite mínima de tests. Ejecutar con: python tip_calculator.py --test"""
@@ -388,7 +532,6 @@ def _tests() -> None:
     print("  TESTS UNITARIOS")
     print(SEPARADOR)
 
-    # calcular_propina — casos válidos
     r = calcular_propina(100, 15, 2)
     check("Propina 15% sobre 100 = total 115", r.total_con_propina == 115.0)
     check("División entre 2 personas = 57.50", r.total_por_persona == 57.50)
@@ -399,7 +542,6 @@ def _tests() -> None:
     r3 = calcular_propina(100, 100, 1)
     check("Propina 100% — total doble", r3.total_con_propina == 200.0)
 
-    # calcular_propina — casos límite (deben lanzar ValueError)
     for nombre, args in [
         ("Monto 0 lanza ValueError", (0, 15, 2)),
         ("Monto negativo lanza ValueError", (-50, 15, 2)),
@@ -412,13 +554,9 @@ def _tests() -> None:
         except ValueError:
             check(nombre, True)
 
-    # fmt_moneda
     check("fmt_moneda 1000.5 → 'S/ 1,000.50'", fmt_moneda(1000.5) == "S/ 1,000.50")
-
-    # Calculo.desde_dict — schema inválido
     check("desde_dict schema inválido → None", Calculo.desde_dict({"x": 1}) is None)
 
-    # Persistencia — guardar y recargar
     import tempfile
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
         tmp_path = Path(tf.name)
@@ -432,7 +570,6 @@ def _tests() -> None:
     finally:
         tmp_path.unlink(missing_ok=True)
 
-    # Resumen
     print(SEPARADOR)
     total = 12
     pasados = total - len(errores)
