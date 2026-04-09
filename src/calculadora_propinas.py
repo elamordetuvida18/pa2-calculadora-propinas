@@ -78,7 +78,7 @@ def calcular_propina(monto: float, propina_pct: float, personas: int) -> Calculo
     if not (0 <= propina_pct <= 100):
         raise ValueError("La propina debe estar entre 0% y 100%.")
     if personas < 1:
-        raise ValueError("Debe haber al menos 1 persona.")
+        raise ValueError("El número de personas debe ser mayor que cero.")
 
     total_con_propina = monto * (1 + propina_pct / 100)
     total_por_persona = total_con_propina / personas
