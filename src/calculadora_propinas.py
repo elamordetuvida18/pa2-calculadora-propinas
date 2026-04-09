@@ -20,8 +20,7 @@ MONEDA_SIMBOLO = "S/"
 MAX_HISTORIAL = 50
 ARCHIVO_HISTORIAL = Path("historial_tip_calculator.json")
 SEPARADOR = "─" * 42
-
-PROPINAS_RAPIDAS = [10, 15, 18, 20, 25]
+PROPINAS_RAPIDAS = [5, 10, 15, 20, 25]
 
 
 # ─── Modelo de datos ──────────────────────────────────────────────────────────
