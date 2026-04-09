@@ -19,8 +19,7 @@ VERSION = "2.0"
 MONEDA_SIMBOLO = "S/"
 MAX_HISTORIAL = 50
 ARCHIVO_HISTORIAL = Path("historial_tip_calculator.json")
-SEPARADOR = "─" * 42
-
+SEPARADOR = "=" * 42
 PROPINAS_RAPIDAS = [10, 15, 18, 20, 25]
 
 
