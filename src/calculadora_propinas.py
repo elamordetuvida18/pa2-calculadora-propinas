@@ -188,7 +188,7 @@ def _pedir_propina() -> float:
     opciones = "  ".join(f"[{p}%]" for p in PROPINAS_RAPIDAS)
     print(f"\n  Propinas rápidas: {opciones}")
     print("  O escribe cualquier porcentaje (0–100).")
-    return _pedir_float("  ➤ Propina (%): ", minimo=-1, maximo=100)
+    return _pedir_float("  ➤ Propina (%): ", minimo=-1, maximo=50)   # Límite reducido a 50%
 
 
 # ─── Aplicación ───────────────────────────────────────────────────────────────
