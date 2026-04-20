@@ -78,8 +78,7 @@ class Calculo:
 
 # ─── Lógica de negocio (pura, sin prints, testeable) ──────────────────────────
 
-def calcular_propina(monto: float, propina_pct: float, personas: int) -> Calculo:
-    """
+def calcular_propina(monto: float, propina_pct: float, personas: int) -> Calculo    """
     Calcula propina y división. Función pura sin efectos secundarios.
 
     Args:
